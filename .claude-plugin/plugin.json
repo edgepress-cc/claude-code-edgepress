@@ -1,19 +1,13 @@
 {
   "name": "edgepress",
-  "displayName": "EdgePress",
   "description": "Author, publish, and manage EdgePress tenant content — posts, pages, media, users, taxonomies, podcasts, daily cartoons, settings — via the /api/v1 REST API.",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "author": {
+    "name": "EdgePress",
+    "url": "https://github.com/likudn-ik"
+  },
   "homepage": "https://api-docs.edgepress.cc",
   "repository": "https://github.com/likudn-ik/claude-code-edgepress",
-  "author": "EdgePress",
   "license": "MIT",
-  "skills": ["skills/edgepress"],
-  "agents": ["agents/edgepress-workflow.md"],
-  "commands": [
-    "commands/setup.md",
-    "commands/whoami.md",
-    "commands/doctor.md",
-    "commands/spec.md",
-    "commands/workflow.md"
-  ]
+  "keywords": ["edgepress", "cms", "content", "api", "publishing"]
 }
