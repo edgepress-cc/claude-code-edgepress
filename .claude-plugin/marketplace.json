@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-code-edgepress",
+  "description": "Author, publish, and manage EdgePress tenant content from Claude Code.",
+  "owner": {
+    "name": "EdgePress",
+    "url": "https://github.com/likudn-ik"
+  },
+  "plugins": [
+    {
+      "name": "edgepress",
+      "description": "Author, publish, and manage EdgePress tenant content via the /api/v1 REST API.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
