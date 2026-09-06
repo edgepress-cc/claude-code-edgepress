@@ -30,9 +30,35 @@ Domains you can operate on:
   `public_signup_enabled`, ...).
 - **API tokens** — PATs. Listing works with a PAT; creating/revoking is
   session-only (admin UI), the plugin cannot do it.
+- **Templates** — page layouts: zones (named regions) holding ordered block
+  instances, draft/published lifecycle, assignment to pages and posts. This is
+  the one domain served by GraphQL (`POST /graphql`), not REST.
 
 Everything below assumes you act on ONE tenant per session — the one named by
 `EDGEPRESS_TENANT`.
+
+## First: which product is this tenant?
+
+EdgePress serves two products, and they expose DIFFERENT API surfaces.
+Identify the product before any other call — one call does it:
+
+`GET /api/v1/users/me` (the setup check below). BOTH products serve it, and
+its `product` field names the tenant's product: `"cms"` (absent also means
+cms) — everything in this skill applies — or `"store"` — only the Store
+operations section applies. A **404** here means the tenant hostname is
+wrong or the tenant is broken — `/edgepress:doctor`, don't guess.
+
+`GET /api/store` (no auth, not under /api/v1) remains the store's public
+identity endpoint: it returns `product: "store"` without credentials — even
+its 503 `store_not_provisioned` response carries it. Use it when you have no
+working token and need to tell a store from a dead tenant.
+
+A store tenant exposes `GET /api/store`, `GET /api/v1/users/me`, the
+catalogue API under `/api/v1/categories` and `/api/v1/products`, and the
+store's settings at `/api/v1/settings` (see Store operations). Every other
+store `/api/*` path requires PAT auth and then
+404s; there are no cart, order or payment endpoints yet. Attempting any CMS
+operation on a store tenant returns a bare 404.
 
 ## Setup check
 
@@ -55,10 +81,16 @@ into chat.
 ep GET /users/me
 ```
 
-- **200** → note the `role` and the `readOnly` flag from the response. Cache
-  both for the rest of the session.
+- **200** → note the `role`, the `readOnly` flag and `product` from the
+  response. `product: "cms"` (absent also means cms) → everything in this
+  skill applies; `product: "store"` → only the Store operations section
+  applies. Cache them for the rest of the session.
 - **401** → token invalid/revoked. Tell the user to run `/edgepress:setup`
-  (or check the token in the tenant admin UI) and STOP.
+  (or check the token in the tenant admin UI) and STOP. If you need to know
+  the product anyway, `curl -sS "https://$EDGEPRESS_TENANT/api/store"`
+  answers `product: "store"` without auth on a store tenant.
+- **404** → wrong hostname or broken tenant (both products serve this
+  endpoint); suggest `/edgepress:doctor`.
 - Network error → print the tenant URL and the error; suggest
   `/edgepress:doctor`.
 
@@ -134,6 +166,8 @@ Triggers per domain:
 - Cartoon collections/items → `references/daily-cartoons.md`
 - Site settings keys → `references/settings.md`
 - Anything about tokens/auth → `references/api-tokens.md`
+- Building or editing page layouts — templates, zones, block instances →
+  `references/templates.md`
 
 Simple GETs (list posts, show a page, read settings) don't need a reference
 load — use the quick reference and go.
@@ -229,18 +263,24 @@ user. Do not shadow it by making the same calls yourself while it runs.
 - **Deleting referenced media breaks content.** A post whose
   `featured_image_id` points at deleted media renders broken. Before
   `DELETE /media/:id`, check for references and warn the user.
-- **Block-editor content blocks are out of scope.** Structured block
-  content (Feature C) is edited in the admin UI, not via this skill. If asked,
-  refer the user to `https://<tenant>/admin`.
+- **Templates are GraphQL, not REST.** Templates, zones and block instances
+  live behind `POST /graphql` — see `references/templates.md`. GraphQL answers
+  HTTP 200 even when it fails, so `ep` exits 0: always check the `errors` array.
+  Block content inside a single post/page body is still admin-UI territory.
 - **Partial updates null fields.** See "Never overwrite" above — always
   GET → merge → PUT for content resources.
 
 ## Domain quick reference
 
+Every section below is labelled with the product it applies to. Identify the
+product first (see "First: which product is this tenant?") — CMS endpoints
+404 on a store tenant, with one exception: `GET /users/me` is served by both
+products (on a store, GET only) and is how you tell them apart.
+
 Enough for simple calls. For request bodies and gotchas, load the domain's
 reference file first.
 
-### Posts
+### Posts — CMS
 
 ```
 GET    /posts                list (query: limit, offset, status)
@@ -256,7 +296,7 @@ Common fields: `title`, `slug`, `content`, `excerpt`, `status`
 `category_ids`, `tag_ids`, `pen_name_id`. Non-obvious: `slug` is derived from
 `title` on create if omitted — set it explicitly for stable URLs.
 
-### Pages
+### Pages — CMS
 
 ```
 GET    /pages          list
@@ -269,7 +309,7 @@ DELETE /pages/:id      delete
 Same shape as posts but no `scheduled_at`. Page taxonomy endpoints are
 `/pages/categories` and `/pages/tags` — never the post ones.
 
-### Media
+### Media — CMS
 
 ```
 GET    /media          list
@@ -289,7 +329,7 @@ curl -sS -X POST "https://$EDGEPRESS_TENANT/api/v1/media/upload" \
 
 Response has `id` and `url`; use `id` in `featured_image_id` etc.
 
-### Categories & tags
+### Categories & tags — CMS
 
 ```
 GET/POST/PUT/DELETE  /posts/categories    post categories (hierarchical: parent_id)
@@ -303,7 +343,7 @@ GET    /posts/tags/:slug                  posts with a tag
 Categories nest via `parent_id`; tags never nest. Post and page taxonomies do
 not share rows.
 
-### Users
+### Users — CMS
 
 ```
 GET    /users              list (admin/editor)
@@ -319,7 +359,7 @@ POST   /users/avatar       set avatar; DELETE to clear
 `subscriber`. Only admins create/edit other users; everyone can PATCH
 `/users/me`.
 
-### Podcasts
+### Podcasts — CMS
 
 ```
 GET    /podcasts           list episodes
@@ -333,7 +373,7 @@ GET    /podcasts/categories, /podcasts/tags   podcast taxonomy
 
 Episodes carry platform links: `apple_url`, `spotify_url`, `youtube_url`.
 
-### Daily cartoons
+### Daily cartoons — CMS
 
 ```
 GET    /daily-cartoons               list collections
@@ -347,7 +387,7 @@ POST   /daily-cartoons/:id/reorder   reorder items
 Collections contain ordered `daily_cartoon_items`; ordering changes go through
 `/reorder`, not by rewriting the collection.
 
-### Settings
+### Settings — CMS
 
 ```
 GET    /settings                  all settings (auth'd)
@@ -359,7 +399,7 @@ GET/PUT /settings/public-signup   public signup toggle
 Key-value store. Common keys: `site_title`, `site_description`,
 `public_signup_enabled`. PUT only the keys you're changing.
 
-### API tokens
+### API tokens — CMS
 
 ```
 GET    /api-tokens        list tokens — works with a PAT
@@ -369,6 +409,96 @@ DELETE /api-tokens/:id    403 session_required — admin UI only
 
 You can audit tokens but never mint or revoke them. Refer the user to
 `https://<tenant>/admin/settings/api-tokens`.
+
+### Templates (GraphQL) — CMS
+
+```
+GET  /blocks                 block catalogue
+GET  /blocks/:type/schema    settings a block type accepts
+POST /graphql                templates, zones, block instances — the only non-REST domain
+```
+
+```bash
+ep POST /graphql '{"query":"query { templates { id name slug status } }"}'
+```
+
+Flow: `createTemplate` → `createZone` → `createBlockInstance` →
+`reorderBlockInstances` → `publishTemplate` → `assignTemplateToPage`.
+HTTP is always 200 — check `errors`. Load `references/templates.md` before
+writing any mutation.
+
+## Store operations
+
+Store tenants in this release expose the public profile endpoint, the
+identity call, the catalogue API (categories + products) and the store's
+settings — nothing else. There are no cart, order or payment endpoints yet,
+and the users API is just the read-only `users/me` identity call (no user
+list, no profile writes). Do not guess at endpoints beyond these, and tell
+the user plainly when a request needs an API the store does not have yet.
+
+```
+GET    /api/store                  the store's public profile (no auth, and NOT under /api/v1)
+GET    /api/v1/users/me            who am I: your user row + readOnly, authMethod, product: "store" (GET only — no PATCH on a store)
+GET    /api/v1/categories          list categories (sort_order, then name)
+POST   /api/v1/categories          create a category ({name} required; slug derived from name unless given)
+GET    /api/v1/categories/{id}     one category
+PATCH  /api/v1/categories/{id}     partial update (send only changed fields)
+DELETE /api/v1/categories/{id}     delete; children are detached (parent_id → null), not deleted
+GET    /api/v1/products            list products; DEFAULT is active+visible only — add ?status=draft|active|archived|all for the rest, ?category={id} to filter by category
+POST   /api/v1/products            create a product ({name} required; slug derived; status defaults to draft; categories: [ids] sets membership)
+GET    /api/v1/products/{id}       one product, any status; includes categories: [ids]
+PATCH  /api/v1/products/{id}       partial update; categories REPLACES membership ([] clears it; omit to keep)
+DELETE /api/v1/products/{id}       delete; its category-membership rows go with it
+GET    /api/v1/settings            the store's settings: exactly 15 fields (identity, contact, currency/locale/timezone, tax, analytics)
+PATCH  /api/v1/settings            partial update of those 15 fields; anything else in the body is ignored, not an error
+```
+
+Every `/api/v1` endpoint (users/me included) uses the same
+`Authorization: Bearer epat_...` PAT auth as the CMS, with the same
+read-only rule: a read-only token gets 403
+`read_only_token` on any non-GET. A duplicate slug is a 409. Categories form
+a tree via `parent_id` (integer id or null); `is_visible` is 0/1.
+Writes return `{"success": true, "id", "slug"}`; GETs return the raw row /
+array of rows.
+
+Product money — `price` and `compare_at_price` — is INTEGER MINOR UNITS
+(1999 = 19.99 in the product currency). A float or negative is rejected with
+400, never rounded: multiply before sending, divide when displaying.
+`currency` must be a 3-letter uppercase ISO 4217 code (anything else is a
+400) and defaults to the store's own currency when omitted on create. A new
+product defaults to `status: "draft"`, which the default product list does
+NOT show — pass `status: "active"` (and leave `visible` alone) to make it
+live, and use `?status=all` when auditing the whole catalogue. Product
+`visible` and `featured` are 0/1.
+
+Store settings (`/api/v1/settings`) cover exactly 15 fields: `name`,
+`description`, `logo_url`, `favicon_url`, `currency`, `locale`, `timezone`,
+`email`, `phone`, `address`, `tax_enabled`, `tax_rate`, `tax_inclusive`,
+`google_analytics_id`, `facebook_pixel_id`. PATCH returns
+`{"success": true, "settings": {...}}` with the updated row; a body with
+nothing updatable is a 400, and a PATCH with `id`, `slug` or any other
+non-listed field silently ignores those fields. `currency` follows the same
+ISO 4217 rule as products; `tax_enabled`/`tax_inclusive` are 0/1 (booleans
+accepted, strings rejected); `tax_rate` is a number 0-100. Length caps:
+`name` is 1-60 characters, and every free-text field (description, the URLs,
+contact fields, analytics ids) caps at 2000 — longer is a 400. Both verbs
+return 503 `store_not_provisioned` until the store row exists (same signal
+as `GET /api/store`). The tax fields
+and the analytics ids are STORED BUT NOT YET APPLIED — tax is applied at
+checkout (slices 3-4) and analytics are emitted by the storefront in slice 6
+— so never tell a user that setting them changes live behaviour today.
+
+`GET /api/store` is the one unauthenticated endpoint, and `ep` cannot call it
+(it prefixes `/api/v1`); use raw curl:
+
+```bash
+curl -sS "https://$EDGEPRESS_TENANT/api/store"
+```
+
+Returns `{"product": "store", "store": {"name", "description", "logo_url",
+"currency", "locale", "timezone", "status"}}`, or 503
+`{"product": "store", "error": "store_not_provisioned"}` before provisioning
+completes — either way, `product: "store"` confirms the tenant is a store.
 
 ## Reference index
 
@@ -385,6 +515,7 @@ Load one of these before generating code for its domain:
 | Daily cartoons | `references/daily-cartoons.md` | collections + items (ordered) |
 | Settings | `references/settings.md` | key-value store, public_signup_enabled, site_title |
 | API tokens | `references/api-tokens.md` | list works via PAT; POST/DELETE need session — refer to admin UI |
+| Templates | `references/templates.md` | page layouts via `POST /graphql`: templates, zones, block instances, publish, assignment |
 
 ## Session output style
 

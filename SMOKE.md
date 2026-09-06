@@ -77,7 +77,7 @@ Expected: `edgepress-workflow` subagent spawns, runs paginated GETs, returns one
 
 ## If anything fails
 
-File an issue at https://github.com/likudn-ik/claude-code-edgepress/issues with:
+File an issue at https://github.com/edgepress-cc/claude-code-edgepress/issues with:
 
 - Which step failed.
 - Exact command + output (redact your token).
