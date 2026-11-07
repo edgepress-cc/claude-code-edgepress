@@ -501,6 +501,16 @@ prefixes `/api/v1`). You can audit tokens but never mint or revoke them.
 Refer the user to `https://<tenant>/admin/settings/api-tokens` — the same
 URL on both products.
 
+### Plugins — BOTH products
+
+Plugins are managed only from the admin, by an admin who signed in within the
+last 10 minutes (`/api/v1/plugins`: upload, approve, settings, secrets,
+disable/enable, rollback, logs, uninstall). Every call with a token is refused
+(403 `session_required` for a PAT), so **an agent cannot install, approve,
+configure or remove a plugin, or read its secrets list**. Tell the user to do it
+in the admin. A plugin's own token reaches only the routes its approved scopes
+allow, and never `/api/v1/plugins` or `/api/v1/api-tokens`.
+
 ### Audit log — STORE
 
 ```
