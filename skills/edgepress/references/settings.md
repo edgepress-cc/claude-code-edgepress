@@ -29,6 +29,16 @@ Toggle public signup:
 ep PUT /settings/public-signup '{"enabled":true}'
 ```
 
+Choose the page `/` shows (empty = the home design):
+
+```bash
+ep PUT /settings '{"option_name":"front_page_id","option_value":"7"}'
+```
+
+The page must exist and be published (else 400 `invalid_front_page`). While it is the home
+page, its `/page/<slug>` 301s to `/`, and if it is later unpublished or deleted, `/` falls back
+to the home design.
+
 ## Response shape
 
 `GET /settings` returns the full list of option rows:
@@ -41,11 +51,45 @@ ep PUT /settings/public-signup '{"enabled":true}'
 ]
 ```
 
+## Theme settings
+
+Three keys are validated on PUT/POST (the only ones that are):
+
+| Key | Shape |
+|---|---|
+| `theme_palette` | `{primary, accent, text, background, muted, surface}` — each `#rrggbb` |
+| `theme_fonts` | `{body, heading, mono}` — each a self-hosted family name or `"system"` |
+| `color_scheme` | a plain string, not JSON: `"auto"` (the default, also when unset — follow the visitor's device, light or dark) or `"light"` (never dark; applying a WordPress design sets it, applying a starter design resets it to `"auto"`) |
+
+For the two JSON keys, every key inside is optional; unknown keys are rejected. Send the object or
+its JSON string — both are accepted, and both are stored as the JSON string:
+
+```json
+{"option_name":"theme_palette","option_value":{"primary":"#1d4ed8","accent":"#f59e0b"}}
+```
+
+`""` or `null` clears the key (the site falls back to its defaults). A bad
+value returns `400 {"success":false,"error":"invalid_theme_setting","detail":"theme_palette.primary: invalid value."}`
+and writes nothing — in a multi-key PUT, none of the keys in that body are
+written. Read the stored result back with `GET /settings`.
+
+## Weather key
+
+`weather_api_key` is the site's own weatherapi.com key, used by the ticker
+block's weather readout. It is **write-only**: set it with
+`PUT /settings {"option_name":"weather_api_key","option_value":"<key>","autoload":"no"}`
+(admin only). `GET /settings`, `GET /settings/public` and `?name=weather_api_key`
+never return it; the name lookup answers 404. To check it works, call
+`GET /api/weather?city=<ticker city>`: 200 with `{city, temp_c, is_day}`, or
+404 `{"error":"not_configured"}` when no key is set. Never put a key in the
+ticker block config; the schema rejects `weatherApiKey`.
+
 ## Gotchas
 
-- **All values are strings.** Booleans arrive as `"true"`/`"false"`, numbers
-  as `"42"`. Compare and write them as strings; don't send raw JSON booleans
-  in `option_value`.
+- **All values are strings** — except `theme_palette`/`theme_fonts` above, which also
+  accept an object. Booleans arrive as `"true"`/`"false"`, numbers as `"42"`.
+  Compare and write them as strings; don't send raw JSON booleans in
+  `option_value`.
 - **Update is PUT `/settings`** (not PATCH) with `{option_name,
   option_value}`. Unlike content PUTs, this touches only the key you name —
   other settings are untouched. Still: send one key at a time and read back.
@@ -58,7 +102,8 @@ ep PUT /settings/public-signup '{"enabled":true}'
   (`/settings/public-signup`) — prefer it over writing
   `public_signup_enabled` directly, since it applies validation.
 - There is no schema for option names: a typo'd `option_name` on PUT/POST
-  quietly creates a new, unused row instead of erroring. Read the existing
-  keys first and match names exactly.
+  quietly creates a new, unused row instead of erroring (only the values of
+  `theme_palette`/`theme_fonts`/`color_scheme` are checked, and only under those exact
+  names). Read the existing keys first and match names exactly.
 - Deleting a load-bearing key (e.g. `site_title`) breaks rendering with no
   API-side guard. Only DELETE rows the user explicitly names, and confirm.
