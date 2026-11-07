@@ -130,7 +130,10 @@ the value in Settings → Plugins; it is write-only there too.
 call it; 60 requests a minute per IP; request body ≤ 1 MB; cookies, `Authorization` and proxy
 headers are stripped before the plugin sees the request. `onRequest` must return a `Response`. It is
 sent as `application/json` if your `Content-Type` says so, otherwise as `text/plain` — never
-HTML, and your other headers are dropped. Verify webhook signatures yourself (with a secret).
+HTML, and your other headers are dropped. Verify webhook signatures yourself, with a signing key the
+admin saves under Settings (read it from `env.settings`): a secret cannot do this job, because the
+bundle never sees one — secrets are only substituted into outgoing requests. Settings are stored in
+plain text and shown to admins, so use a key meant for verifying, not one that grants access.
 
 ## Limits and delivery
 
