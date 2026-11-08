@@ -39,7 +39,10 @@ on `/api/v1/plugins`. Hand the user the two files and tell them where to upload 
 
 Any other key is refused (`blocks`, `adminPanels`, `widgets` only as empty arrays). Manifest ≤ 32 KB.
 A new version that asks for anything the admin has not approved yet (a scope, host, hook, route,
-schedule, or a secret on a new host) waits for fresh approval; the old version keeps running.
+schedule, or a secret on a new host) waits for fresh approval; the old version keeps running. Approval is
+of that exact code AND manifest: re-uploading the same code with a different manifest needs approving again.
+A plugin the admin disabled stays disabled after approving an update (Enable turns it on); Discard drops a
+waiting upload.
 
 ### Scopes
 
@@ -158,4 +161,5 @@ plain text and shown to admins, so use a key meant for verifying, not one that g
 
 Give the user `manifest.json` and `plugin.js`, then: Settings → Plugins → choose both files →
 Upload → read what it asks for → Approve → set any secrets and settings. The last 5 approved versions
-are kept for Roll back.
+are kept for Roll back. Managing plugins needs a sign-in from the last 10 minutes; the page's "Sign in again"
+button renews it.
