@@ -173,8 +173,9 @@ the last good one and the admin sees the error under Logs.
 
 The output is sanitised, so write plain markup:
 
-- Kept: layout and text tags, `class`, `style` (filtered), links, and images over `https` only. Links to other sites get
-  `rel="noopener nofollow"`.
+- Kept: layout and text tags, `class`, `style` (filtered), links, and images. An image (`src` and each `srcset` entry) is
+  kept only when it is site-relative (`/media/…`) or `https://` from a host in your manifest's `egress` list; any other
+  image is dropped. Links to other sites get `rel="noopener nofollow"`.
 - Dropped: `<script>`, forms and inputs, iframes and embeds, `on*` handlers, `javascript:` URLs, `http` images, and any `url(...)`
   inside a `style` attribute.
 - CSS is scoped under the block's wrapper automatically. Plain rules and `@media` only (`@import`, `@font-face` and other
