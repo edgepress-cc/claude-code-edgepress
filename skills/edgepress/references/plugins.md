@@ -177,7 +177,7 @@ The output is sanitised, so write plain markup:
 - Dropped: `<script>`, forms and inputs, iframes and embeds, `on*` handlers, `javascript:` URLs, `http` images, and any `url(...)`
   inside a `style` attribute.
 - CSS is scoped under the block's wrapper automatically. Plain rules and `@media` only (`@import`, `@font-face` and other
-  at-rules are dropped; `:root`, `html` and `body` mean the wrapper itself), a declaration with `!important` is dropped, and so is
+  at-rules are dropped; `:root`, `html` and `body` mean the block's own element, which sits inside the clipping wrapper), a declaration with `!important` is dropped, and so is
   one with a remote `url(...)` (inline `data:image/` URLs are allowed in the CSS you return, not in `style` attributes). The wrapper clips anything painted outside its box.
 
 Worked example, "Customer reviews": the schedule fetches into storage, the block renders from it.
