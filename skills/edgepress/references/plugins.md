@@ -167,7 +167,8 @@ manifest, render them from `onBlock`:
 
 Because a block cannot fetch, fill storage from `onSchedule`, `onEvent` or `onRequest` and render from storage. EdgePress
 renders ahead of time, not per visitor: the page shows the stored rendering. A storage write updates the block within
-about a minute; time-based content (a relative date, "open now") is re-rendered hourly. If a render fails, visitors keep
+about a minute; time-based content (a relative date, "open now") is re-rendered hourly while a page has shown it in the
+last two days. Block renders have their own daily budget per site, separate from events, routes and schedules. If a render fails, visitors keep
 the last good one and the admin sees the error under Logs.
 
 The output is sanitised, so write plain markup:
